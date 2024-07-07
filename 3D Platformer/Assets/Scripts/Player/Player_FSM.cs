@@ -1,188 +1,317 @@
-using UnityEngine.UI;
 using UnityEngine;
 using TMPro;
+
 public class Player_FSM : MonoBehaviour
 {
     #region For All Variables
     private StateMachine stateMachine;
-    public SpriteRenderer spriteRenderer;
 
-    [Header("Targets")]
-    [SerializeField] private Transform predator;
+    [Header("References")]
+    [SerializeField] private CharacterController characterController;
+    [SerializeField] private Animator animator;
 
-    [Header("Health Bar")]
-    [SerializeField] private Slider healthSlider;
-    [SerializeField] private TMP_Text healthText;
+    [Header("Gravity")]
+    [SerializeField] private float gravity = -20f;
+    private float currentGravity;
 
-    [Header("Health Parameter")]
-    [SerializeField] private float health = 100.0f;
+    [Header("In Air")]
+    private Vector3 velocity;
 
-    [Header("Vehicle Parameter")]
-    //[SerializeField] private float wanderRadius = 2f;
-    //[SerializeField] private float distanceAhead = 4f;
-    //[SerializeField] private float nextTargetTimer = 10.0f;
-    public float slowingRadius = 1.0f;
-    //[SerializeField] private float stoppingDistance = 0.05f;
+    [Header("Stamina")]
+    [SerializeField] private float stamina = 100f;
+    [SerializeField] private float depleteRate = 5f;
 
-    [Header("Detection Range")]
-    [SerializeField] private LayerMask detectionLayer;
-    [SerializeField] private float detectionRadius = 2.0f;
-    [SerializeField] private float detectionCooldown = 5.0f;
-    private float currentTimer;
+    [Header("Movement Parameters")]
+    [SerializeField] private float turnSmoothTime = 0.1f;
+    private float inputX;
+    private float inputY;
+    private Vector3 movement;
+    private float currentSpeed;
+    private float turnSmoothVelocity;
 
-    [Header("Wander Parameter")]
-    private Vector3 randomTarget;
-    private Vector3 circleLocation;
-    private float currentTargetTimer;
+    [Header("Jump Parameters")]
+    [SerializeField] private float jumpForce = -3f;
+    [SerializeField] private int jumpCount = 1;
+    private int currentJumpCount;
 
-    [Header("Booleans")]
-    private bool reachedPredator;
-    private bool isFleeing;
-    private bool isShot;
-
-    [Header("Corpse")]
-    [SerializeField] private GameObject meatPrefab;
-
-    [Header("Sprites")]
-    public Sprite wander;
-    public Sprite flee;
+    #region     Debug Text
+    [Header("Debug Text")]
+    [SerializeField] private TMP_Text stateText;
+    [SerializeField] private TMP_Text movementText;
+    [SerializeField] private TMP_Text velocityText;
+    [SerializeField] private TMP_Text groundedText;
+    [SerializeField] private TMP_Text sprintingText;
+    [SerializeField] private TMP_Text jumpingText;
+    [SerializeField] private TMP_Text jumpCountText;
+    [SerializeField] private TMP_Text glidingText;
+    [SerializeField] private TMP_Text staminaText;
+    #endregion  Debug Text
     #endregion For All Variables
 
     private void Awake()
     {
+        #region     Get Components
+        characterController = GetComponent<CharacterController>();
+        animator = GetComponentInChildren<Animator>();
+        #endregion  Get Components
+
+        currentJumpCount = jumpCount;
+        currentGravity = gravity;
+
         stateMachine = new StateMachine();
 
         // 1. Create all possible states
         #region For All States
-        var playerMoveState = new PlayerState_Move(this);         // Move
+        var playerIdleState = new PlayerState_Idle(this);           // Idle
+        var playerMoveState = new PlayerState_Walk(this);           // Move
+        var playerSprintState = new PlayerState_Sprint(this);       // Sprint
+        var playerJumpState = new PlayerState_Jump(this);           // Jump
+        var playerFallState = new PlayerState_Fall(this);           // Fall
+        var playerGlideState = new PlayerState_Glide(this);         // Glide
         #endregion For All States
 
         // 2. Set all transitions
         #region For All Transitions
-        /*bunnyWanderState.AddTransition(bunnyFleeState, (timeInState) =>
+        #region     Grounded
+        // Move
+        playerIdleState.AddTransition(playerMoveState, (timeInState) =>
         {
-            return PredatorInRange() || ProjectileInRange();
+            return IsGrounded() && IsMoving();
+        });
+        playerSprintState.AddTransition(playerMoveState, (timeInState) =>
+        {
+            return (IsGrounded() && IsMoving() && !IsSprinting()) || IsStaminaDepleted();
+        });
+        playerJumpState.AddTransition(playerMoveState, (timeInState) =>
+        {
+            return IsGrounded() && IsMoving();
         });
 
-        bunnyFleeState.AddTransition(bunnyWanderState, (timeInState) =>
+        // Sprint
+        playerMoveState.AddTransition(playerSprintState, (timeInState) =>
         {
-            return !PredatorAvailable() && !PredatorLocked() && !ProjectileInRange();
-        });*/
+            return IsGrounded() && IsMoving() && IsSprinting();
+        });
+
+        // Idle
+        playerJumpState.AddTransition(playerIdleState, (timeInState) =>
+        {
+            return IsGrounded() && !IsMoving();
+        });
+        playerFallState.AddTransition(playerMoveState, (timeInState) =>
+        {
+            return IsGrounded() && IsMoving();
+        });
+        playerFallState.AddTransition(playerIdleState, (timeInState) =>
+        {
+            return IsGrounded() && !IsMoving();
+        });
+        playerSprintState.AddTransition(playerIdleState, (timeInState) =>
+        {
+            return IsGrounded() && !IsSprinting() && !IsMoving();
+        });
+        playerMoveState.AddTransition(playerIdleState, (timeInState) =>
+        {
+            return IsGrounded() && !IsMoving();
+        });
+        playerGlideState.AddTransition(playerIdleState, (timeInState) =>
+        {
+            return IsGrounded() && !IsMoving();
+        });
+        #endregion  Grounded
+
+        #region     In Air
+        // Jump
+        playerIdleState.AddTransition(playerJumpState, (timeInState) =>
+        {
+            return IsGrounded() && IsJumping();
+        });
+        playerMoveState.AddTransition(playerJumpState, (timeInState) =>
+        {
+            return IsGrounded() && IsJumping();
+        });
+        playerSprintState.AddTransition(playerJumpState, (timeInState) =>
+        {
+            return IsGrounded() && IsJumping();
+        });
+        playerFallState.AddTransition(playerJumpState, (timeInState) =>
+        {
+            return !IsGrounded() && IsJumping();
+        });
+
+        // Fall
+        playerJumpState.AddTransition(playerFallState, (timeInState) =>
+        {
+            return IsFalling();
+        });
+        playerGlideState.AddTransition(playerFallState, (timeInState) =>
+        {
+            return !IsGliding();
+        });
+
+        // Glide
+        playerFallState.AddTransition(playerGlideState, (timeInState) =>
+        {
+            return !IsGrounded() && IsGliding();
+        });
+        #endregion  In Air
         #endregion For All Transitions
 
         // 3. Set the starting state
-        stateMachine.SetInitialState(playerMoveState);
+        #region     For Initial State
+        stateMachine.SetInitialState(playerIdleState);
+        #endregion  For Initial State
     }
 
     private void Update()
     {
-        UpdateKnowledge();
+        Debug.Log(currentGravity);
+        // For Debug
+        PrintBools();
+
+        HandleGravity();
+        HandleInput();
+        HandleMovement();
+        HandleJump();
+
         stateMachine.Tick(Time.deltaTime);
     }
 
-    public void UpdateKnowledge()
+    private void HandleGravity()
     {
-        UpdateBars();
-        UpdateDetection();
-        StartCooldown();
-    }
+        velocity.y += currentGravity * Time.deltaTime;
 
-    private void UpdateBars()
-    {
-        float normalizedHealth = health / 100;
-
-        healthText.text = $"{normalizedHealth:P0}";
-    }
-
-    private void UpdateDetection()
-    {
-        if (!predator)
+        if (characterController.isGrounded)
         {
-            predator = null;
-            isShot = false;
-            isFleeing = false;
-        }
+            currentJumpCount = jumpCount;
 
-        RaycastHit2D hit = Physics2D.CircleCast(transform.position, detectionRadius, Vector2.right * transform.localScale.x, 0, detectionLayer);
-
-        if (hit.collider != null)
-        {
-
-            if (hit.collider.gameObject.layer == LayerMask.NameToLayer("Human") || hit.collider.gameObject.layer == LayerMask.NameToLayer("Predator"))
+            if (velocity.y < 0)
             {
-                predator = hit.collider.gameObject.transform;
-                currentTimer = 0;
-                reachedPredator = true;
-                isFleeing = true;
+                velocity.y = -2f;
             }
         }
         else
         {
-            reachedPredator = false;
+            if(velocity.y < currentGravity)
+            {
+                velocity.y = currentGravity;
+            }
         }
     }
 
-    private void StartCooldown()
+    private void HandleInput()
     {
-        if (predator)
+        inputX = Input.GetAxisRaw("Horizontal");
+        inputY = Input.GetAxisRaw("Vertical");
+    }
+
+    private void HandleMovement()
+    {
+        movement = new Vector3(inputX, 0.0f, inputY).normalized;
+
+        if (movement.magnitude >= 0.1f)
         {
-            if (PredatorLocked() && !PredatorInRange() || PredatorLocked() && ProjectileInRange() && !PredatorInRange())
+            // player rotation
+            float targetAngle = Mathf.Atan2(movement.x, movement.z) * Mathf.Rad2Deg;
+            float angle = Mathf.SmoothDampAngle(transform.eulerAngles.y, targetAngle, ref turnSmoothVelocity, turnSmoothTime);
+            transform.rotation = Quaternion.Euler(0f, angle, 0f);
+
+            // horizontal movement
+            characterController.Move(movement * currentSpeed * Time.deltaTime);
+        }
+
+        // vertical movement
+        characterController.Move(velocity * Time.deltaTime);
+    }
+
+    private void HandleJump()
+    {
+        if (Input.GetButtonDown("Jump"))
+        {
+            if (currentJumpCount > 0)
             {
-                currentTimer += Time.deltaTime;
-                if (currentTimer >= detectionCooldown)
-                {
-                    currentTimer = 0f;
-                    predator = null;
-                    isShot = false;
-                    isFleeing = false;
-                }
+                velocity.y = jumpForce;
+                //velocity.y = Mathf.Sqrt(jumpHeight * jumpForce * currentGravity);
+                currentJumpCount--;
             }
         }
     }
 
     #region For State Actions
-
-    public void DepleteHealth()
+    public void SetCurrentGravity(float gravityValue)
     {
-        healthSlider.value -= 25;
-        health = healthSlider.value;
-        health = Mathf.Max(health, 0.0f);
+        currentGravity = gravityValue;
+    }
 
-        if (health <= 0)
-        {
-            Instantiate(meatPrefab, transform.position, Quaternion.identity);
-            Destroy(gameObject);
-        }
+    public void SetCurrentSpeed(float speedValue)
+    {
+        currentSpeed = speedValue;
+    }
+
+    public void SetCurrentAnimation(string animation)
+    {
+        animator.Play(animation);
+    }
+
+    public void DepleteStamina()
+    {
+        stamina -= depleteRate * Time.deltaTime;
     }
     #endregion For State Actions
 
     #region For Transition Checks
-    private bool PredatorInRange()
+    private bool IsGrounded()
     {
-        return reachedPredator;
+        return characterController.isGrounded;
     }
 
-    private bool ProjectileInRange()
+    private bool IsMoving()
     {
-        return isShot;
+        return movement.magnitude != 0;
     }
 
-    private bool PredatorLocked()
+    private bool IsSprinting()
     {
-        return isFleeing;
+        return Input.GetButton("Sprint");
     }
 
-    private bool PredatorAvailable()
+    private bool IsJumping()
     {
-        return predator;
+        return velocity.y > 0;
+    }
+
+    private bool IsFalling()
+    {
+        return velocity.y < 0;
+    }
+
+    private bool IsGliding()
+    {
+        return Input.GetButton("Jump");
+    }
+
+    private bool IsStaminaDepleted()
+    {
+        return stamina <= 0;
     }
     #endregion For Transition Checks
 
     #region For Visuals
-
     #endregion For Visuals
 
-    private void OnTriggerEnter2D(Collider2D collision)
+    #region     For Debug
+    private void PrintBools()
     {
+        stateText.text = stateMachine.CurrentStateName;
+        movementText.text = "Movement: " + movement.ToString();
+        velocityText.text = "Velocity: " + velocity.y.ToString();
+        groundedText.text = "Grounded: " + IsGrounded().ToString();
+        sprintingText.text = "Sprinting: " + IsSprinting().ToString();
+        jumpingText.text = "Jumping: " + IsJumping().ToString();
+        jumpCountText.text = "Current Jump Count: " + currentJumpCount.ToString();
+        glidingText.text = "Gliding: " + IsGliding().ToString();
+        staminaText.text = "Stamina: " + stamina.ToString();
     }
+    #endregion  For Debug
+
 }

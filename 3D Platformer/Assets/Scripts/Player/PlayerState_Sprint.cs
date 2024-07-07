@@ -1,12 +1,14 @@
 using UnityEngine;
 
-public class PlayerState_Idle : StateBase
+public class PlayerState_Sprint : StateBase
 {
-    public override string Name => "PLAYER_IDLE";
+    public override string Name => "PLAYER_SPRINT";
 
     private Player_FSM component;
 
-    public PlayerState_Idle(Player_FSM p)
+    private float sprintSpeed = 6f;
+
+    public PlayerState_Sprint(Player_FSM p)
     {
         component = p;
     }
@@ -14,7 +16,8 @@ public class PlayerState_Idle : StateBase
     protected override void OnEnter()
     {
         Debug.Log("<color=green>Entering " + Name + "</color>");
-        component.SetCurrentAnimation("Idle_A");
+        component.SetCurrentSpeed(sprintSpeed);
+        component.SetCurrentAnimation("Run");
     }
 
     protected override void OnExit()
@@ -24,5 +27,6 @@ public class PlayerState_Idle : StateBase
 
     protected override void OnUpdate(float deltaTime)
     {
+        component.DepleteStamina();
     }
 }

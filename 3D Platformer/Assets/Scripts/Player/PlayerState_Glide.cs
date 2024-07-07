@@ -1,12 +1,14 @@
 using UnityEngine;
 
-public class PlayerState_Idle : StateBase
+public class PlayerState_Glide : StateBase
 {
-    public override string Name => "PLAYER_IDLE";
+    public override string Name => "PLAYER_GLIDE";
 
     private Player_FSM component;
 
-    public PlayerState_Idle(Player_FSM p)
+    private float glideGravity = -10f;
+
+    public PlayerState_Glide(Player_FSM p)
     {
         component = p;
     }
@@ -14,7 +16,7 @@ public class PlayerState_Idle : StateBase
     protected override void OnEnter()
     {
         Debug.Log("<color=green>Entering " + Name + "</color>");
-        component.SetCurrentAnimation("Idle_A");
+        component.SetCurrentGravity(glideGravity);
     }
 
     protected override void OnExit()
