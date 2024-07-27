@@ -15,14 +15,12 @@ public class PlayerState_Sprint : StateBase
 
     protected override void OnEnter()
     {
-        Debug.Log("<color=green>Entering " + Name + "</color>");
         component.SetCurrentSpeed(sprintSpeed);
         component.SetCurrentAnimation("Run");
     }
 
     protected override void OnExit()
     {
-        Debug.Log("<color=red>Exiting " + Name + "</color>");
     }
 
     protected override void OnUpdate(float deltaTime)

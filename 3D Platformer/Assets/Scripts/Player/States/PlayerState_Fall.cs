@@ -15,13 +15,11 @@ public class PlayerState_Fall : StateBase
 
     protected override void OnEnter()
     {
-        Debug.Log("<color=green>Entering " + Name + "</color>");
         component.SetCurrentGravity(fallGravity);
     }
 
     protected override void OnExit()
     {
-        Debug.Log("<color=red>Exiting " + Name + "</color>");
     }
 
     protected override void OnUpdate(float deltaTime)

@@ -13,13 +13,11 @@ public class PlayerState_Idle : StateBase
 
     protected override void OnEnter()
     {
-        Debug.Log("<color=green>Entering " + Name + "</color>");
         component.SetCurrentAnimation("Idle_A");
     }
 
     protected override void OnExit()
     {
-        Debug.Log("<color=red>Exiting " + Name + "</color>");
     }
 
     protected override void OnUpdate(float deltaTime)

@@ -1,13 +1,10 @@
 using UnityEngine;
 
-// This state machine approach ensures the initial state needs to be set first
-// and calls the Enter method right after.
 public class StateMachine
 {
     private StateBase currentState;
     private bool initialized = false;
 
-    //Debug Purposes
     public string CurrentStateName => currentState?.Name;
 
     public void SetInitialState(StateBase s)
@@ -29,9 +26,12 @@ public class StateMachine
 
         if (currentState.TryGetNextTransition(out StateBase next))
         {
-            currentState.Exit();
-            currentState = next;
-            currentState.Enter();
+            if (next != currentState)
+            {
+                currentState.Exit();
+                currentState = next;
+                currentState.Enter();
+            }
         }
     }
 }

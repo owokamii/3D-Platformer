@@ -15,14 +15,12 @@ public class PlayerState_Walk : StateBase
 
     protected override void OnEnter()
     {
-        Debug.Log("<color=green>Entering " + Name + "</color>");
         component.SetCurrentSpeed(walkSpeed);
         component.SetCurrentAnimation("Walk");
     }
 
     protected override void OnExit()
     {
-        Debug.Log("<color=red>Exiting " + Name + "</color>");
     }
 
     protected override void OnUpdate(float deltaTime)
