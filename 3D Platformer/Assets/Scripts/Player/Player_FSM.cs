@@ -17,6 +17,7 @@ public class Player_FSM : MonoBehaviour
     [SerializeField] private TMP_Text groundedText;
     [SerializeField] private TMP_Text sprintingText;
     [SerializeField] private TMP_Text jumpingText;
+    [SerializeField] private TMP_Text fallingText;
     [SerializeField] private TMP_Text jumpCountText;
     [SerializeField] private TMP_Text glidingText;
     [SerializeField] private TMP_Text staminaText;
@@ -69,15 +70,14 @@ public class Player_FSM : MonoBehaviour
         // Jump
         StateBase.AddAnyTransition(playerJumpState, (timeInState) =>
         {
-            return !IsGrounded() && IsJumping();
+            return !IsGrounded() && !IsFalling();
         });
 
-        /*
         // Fall
         StateBase.AddAnyTransition(playerFallState, (timeInState) =>
         {
             return !IsGrounded() && IsFalling();
-        });*/
+        });
 
         // Glide
         //*playerFallState.AddTransition(playerGlideState, (timeInState) =>
@@ -117,7 +117,7 @@ public class Player_FSM : MonoBehaviour
 
     public void DepleteStamina()
     {
-        //stamina -= depleteRate * Time.deltaTime;
+        playerController.GetCurrentStamina = 5 * Time.deltaTime;
     }
     #endregion For State Actions
 
@@ -135,11 +135,6 @@ public class Player_FSM : MonoBehaviour
     private bool IsSprinting()
     {
         return Input.GetButton("Sprint");
-    }
-
-    private bool IsJumping()
-    {
-        return playerController.GetVelocity.y > 0;
     }
 
     private bool IsFalling()
@@ -171,10 +166,11 @@ public class Player_FSM : MonoBehaviour
         velocityText.text = "Velocity: " + playerController.GetVelocity.y.ToString();
         groundedText.text = "Grounded: " + IsGrounded().ToString();
         sprintingText.text = "Sprinting: " + IsSprinting().ToString();
-        jumpingText.text = "Jumping: " + IsJumping().ToString();
+        jumpingText.text = "Jumping: " + (!IsFalling()).ToString();
+        fallingText.text = "Falling: " + IsFalling().ToString();
         jumpCountText.text = "Current Jump Count: " + playerController.GetCurrentJumpCount.ToString();
         //glidingText.text = "Gliding: " + IsGliding().ToString();
-        //staminaText.text = "Stamina: " + stamina.ToString();
+        staminaText.text = "Stamina: " + playerController.GetCurrentStamina.ToString();
     }
     #endregion  For Debug
 

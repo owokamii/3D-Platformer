@@ -15,6 +15,7 @@ public class PlayerState_Sprint : StateBase
 
     protected override void OnEnter()
     {
+        //component.DepleteStamina();
         component.SetCurrentSpeed(sprintSpeed);
         component.SetCurrentAnimation("Run");
     }
